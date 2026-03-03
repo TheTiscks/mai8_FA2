@@ -500,7 +500,26 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     public void Add(KeyValuePair<TKey, TValue> item) => Add(item.Key, item.Value);
     public void Clear() { Root = null; Count = 0; }
     public bool Contains(KeyValuePair<TKey, TValue> item) => ContainsKey(item.Key);
-    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => throw new NotImplementedException();
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
+    {
+        if (array == null)
+        {
+            throw new ArgumentNullException(nameof(array));
+        }
+        if (arrayIndex < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex), "index must be >=0");
+        }
+        if (array.Length - arrayIndex < Count)
+        {
+            throw new ArgumentException("dest doesnt have enough space");
+        }
+        int i = arrayIndex;
+        foreach (var entry in InOrder())
+        {
+            array[i++] = new KeyValuePair<TKey, TValue>(entry.Key, entry.Value);
+        }
+    }
     public bool Remove(KeyValuePair<TKey, TValue> item) => Remove(item.Key);
     
     public ICollection<TKey> Keys => InOrder().Select(e => e.Key).ToList();
