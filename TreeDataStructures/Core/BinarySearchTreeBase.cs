@@ -275,10 +275,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         new TreeIterator(this, TraversalStrategy.InOrderReverse);
     
     public IEnumerable<TreeEntry<TKey, TValue>> PreOrderReverse() => 
-        new TreeIterator(this, TraversalStrategy.PostOrderReverse);
+        new TreeIterator(this, TraversalStrategy.PreOrderReverse);
 
     public IEnumerable<TreeEntry<TKey, TValue>> PostOrderReverse() => 
-        new TreeIterator(this, TraversalStrategy.PreOrderReverse);
+        new TreeIterator(this, TraversalStrategy.PostOrderReverse);
     
     
     private struct TreeIterator : 
@@ -309,8 +309,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             switch (_strategy)
             {
                 case TraversalStrategy.PreOrder:
-                case TraversalStrategy.PreOrderReverse:
                     _stack.Push(_tree.Root);
+                    break;
+                case TraversalStrategy.PreOrderReverse:
+                    _stack.Push(new PostOrderState { Node = _tree.Root, Visited = false });
                     break;
                 case TraversalStrategy.InOrder:
                     PushLeftChain(_tree.Root);
@@ -319,8 +321,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     PushRightChain(_tree.Root);
                     break;
                 case TraversalStrategy.PostOrder:
-                case TraversalStrategy.PostOrderReverse:
                     _stack.Push(new PostOrderState { Node = _tree.Root, Visited = false });
+                    break;
+                case TraversalStrategy.PostOrderReverse:
+                    _stack.Push(_tree.Root);
                     break;
             }
         }
@@ -370,8 +374,9 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                 case TraversalStrategy.InOrderReverse:
                     return MoveNextInOrderReverse();
                 case TraversalStrategy.PostOrder:
-                case TraversalStrategy.PostOrderReverse:
                     return MoveNextPostOrder();
+                case TraversalStrategy.PostOrderReverse:
+                    return MoveNextPostOrderReverse();
                 default:
                     throw new NotSupportedException("Strategy not implemented");
             }
@@ -395,19 +400,45 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
 
         private bool MoveNextPreOrderReverse()
         {
+            while (true)
+            {
+                var state = (PostOrderState)_stack!.Peek();
+                if (!state.Visited)
+                {
+                    state.Visited = true;
+                    _stack.Pop();
+                    _stack.Push(state);
+                    if (state.Node.Left != null)
+                    {
+                        _stack.Push(new PostOrderState { Node = state.Node.Left, Visited = false });
+                    }
+
+                    if (state.Node.Right != null)
+                    {
+                        _stack.Push(new PostOrderState { Node = state.Node.Right, Visited = false });
+                    }
+                }
+                else
+                {
+                    _stack.Pop();
+                    _current = CreateEntry(state.Node);
+                    return true;
+                }
+            }
+        }
+
+        private bool MoveNextPostOrderReverse()
+        {
+            // Зеркальный preorder: корень, правое, левое (простой стек)
             var node = (TNode)_stack!.Pop();
             _current = CreateEntry(node);
             if (node.Left != null)
-            {
                 _stack.Push(node.Left);
-            }
             if (node.Right != null)
-            {
                 _stack.Push(node.Right);
-            }
             return true;
         }
-
+        
         private bool MoveNextInOrder()
         {
             var node = (TNode)_stack!.Pop();
