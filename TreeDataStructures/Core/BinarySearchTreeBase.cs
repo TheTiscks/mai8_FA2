@@ -516,15 +516,48 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         }
     }
     
+    private struct InOrderPairEnumerator : IEnumerator<KeyValuePair<TKey, TValue>>
+    {
+        private TreeIterator _innerIterator;
+        private KeyValuePair<TKey, TValue> _current;
+        public InOrderPairEnumerator(BinarySearchTreeBase<TKey, TValue, TNode> tree)
+        {
+            _innerIterator = new TreeIterator(tree, TraversalStrategy.InOrder);
+            _current = default;
+        }
+
+        public bool MoveNext()
+        {
+            if (!_innerIterator.MoveNext())
+            {
+                return false;
+            }
+            var entry = _innerIterator.Current;
+            _current = new KeyValuePair<TKey, TValue>(entry.Key, entry.Value);
+            return true;
+        }
+
+        public KeyValuePair<TKey, TValue> Current => _current;
+        object IEnumerator.Current => Current;
+        public void Reset()
+        {
+            _innerIterator.Reset();
+            _current = default;
+        }
+        public void Dispose()
+        {
+            _innerIterator.Dispose();
+        }
+    }
+    
     
     private enum TraversalStrategy { InOrder, PreOrder, PostOrder, InOrderReverse, PreOrderReverse, PostOrderReverse }
     
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
     {
-        foreach (var entry in InOrder())
-            yield return new KeyValuePair<TKey, TValue>(entry.Key, entry.Value);
+        return new InOrderPairEnumerator(this);
     }
-    
+
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
 
