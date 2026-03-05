@@ -18,7 +18,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     protected virtual int GetHeight(TNode? node)
     {
-        if (node == null) return 0;
+        if (node == null)
+        {
+            return 0;
+        }
         return 1 + Math.Max(GetHeight(node.Left), GetHeight(node.Right));
     }
     
@@ -73,7 +76,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     public virtual bool Remove(TKey key)
     {
         TNode? node = FindNode(key);
-        if (node == null) { return false; }
+        if (node == null)
+        {
+            return false;
+        }
         RemoveNode(node);
         Count--;
         return true;
@@ -362,7 +368,9 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         public bool MoveNext()
         {
             if (_stack == null || _stack.Count == 0)
+            {
                 return false;
+            }
             switch (_strategy)
             {
                 case TraversalStrategy.PreOrder:
@@ -390,7 +398,6 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             {
                 _stack.Push(node.Right);
             }
-
             if (node.Left != null)
             {
                 _stack.Push(node.Left);
@@ -429,13 +436,16 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
 
         private bool MoveNextPostOrderReverse()
         {
-            // Зеркальный preorder: корень, правое, левое (простой стек)
             var node = (TNode)_stack!.Pop();
             _current = CreateEntry(node);
             if (node.Left != null)
+            {
                 _stack.Push(node.Left);
+            }
             if (node.Right != null)
+            {
                 _stack.Push(node.Right);
+            }
             return true;
         }
         
