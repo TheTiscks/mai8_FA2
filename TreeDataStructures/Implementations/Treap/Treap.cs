@@ -56,7 +56,10 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
     {
         if (left == null)
         {
-            if (right != null) right.Parent = null;
+            if (right != null)
+            {
+                right.Parent = null;
+            }
             return right;
         }
         if (right == null)
@@ -70,14 +73,20 @@ public class Treap<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, TreapNode<
         if (left.Priority > right.Priority)
         {
             left.Right = Merge(left.Right, right);
-            if (left.Right != null) left.Right.Parent = left;
+            if (left.Right != null)
+            {
+                left.Right.Parent = left;
+            }
             left.Parent = null;
             return left;
         }
         else
         {
             right.Left = Merge(left, right.Left);
-            if (right.Left != null) right.Left.Parent = right;
+            if (right.Left != null)
+            {
+                right.Left.Parent = right;
+            }
             right.Parent = null;
             return right;
         }
