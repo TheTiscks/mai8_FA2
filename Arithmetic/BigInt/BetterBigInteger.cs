@@ -5,8 +5,7 @@ namespace Arithmetic.BigInt;
 
 public sealed class BetterBigInteger : IBigInteger
 {
-    private int _signBit;
-    
+    private int _signBit; // 0 – полож, 1 – отрицательное
     private uint _smallValue; // Если число маленькое, храним его прямо в этом поле, а _data == null.
     private uint[]? _data;
     
@@ -15,17 +14,43 @@ public sealed class BetterBigInteger : IBigInteger
     /// От массива цифр (little endian)
     public BetterBigInteger(uint[] digits, bool isNegative = false)
     {
-        throw new NotImplementedException("Implement storage logic with Small Integer Optimization");
+        if (digits == null)
+        {
+            throw new ArgumentNullException(nameof(digits));
+        }
+        InitializeFromDigits(digits, isNegative);
     }
     
     public BetterBigInteger(IEnumerable<uint> digits, bool isNegative = false)
     {
-        throw new NotImplementedException();
+        if (digits == null)
+        {
+            throw new ArgumentNullException(nameof(digits));
+        }
+        InitializeFromDigits(digits.ToArray(), isNegative);
     }
     
-    public BetterBigInteger(string value, int radix)
+    
+    private void InitializeFromDigits(uint[] digits, bool isNegative)
     {
-        throw new NotImplementedException();
+        Normalize(ref digits);
+        if (digits.Length == 0)
+        {
+            _signBit = 0;
+            _smallValue = 0;
+            _data = null;
+            return;
+        }
+        if (digits.Length == 1)
+        {
+            _smallValue = digits[0];
+            _data = null;
+        }
+        else
+        {
+            _data = digits;
+        }
+        _signBit = isNegative ? 1 : 0;
     }
     
     
@@ -63,6 +88,19 @@ public sealed class BetterBigInteger : IBigInteger
     public static bool operator >(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) > 0;
     public static bool operator <=(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) <= 0;
     public static bool operator >=(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) >= 0;
+    
+    private static void Normalize(ref uint[] arr)
+    {
+        int lastNonZero = arr.Length - 1;
+        while (lastNonZero > 0 && arr[lastNonZero] == 0)
+        {
+            lastNonZero--;
+        }
+        if (lastNonZero != arr.Length - 1)
+        {
+            Array.Resize(ref arr, lastNonZero + 1);
+        }
+    }
     
     public override string ToString() => ToString(10);
     public string ToString(int radix) => throw new NotImplementedException();
