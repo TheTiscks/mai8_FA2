@@ -206,12 +206,74 @@ public sealed class BetterBigInteger : IBigInteger
         }
         return new BetterBigInteger(digits.ToArray(), !a.IsNegative);
     }
-    public static BetterBigInteger operator /(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    public static BetterBigInteger operator %(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    
-    
     public static BetterBigInteger operator *(BetterBigInteger a, BetterBigInteger b)
-       => throw new NotImplementedException("Умножение делегируется стратегии, выбирать необходимо в зависимости от размеров чисел");
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        if (b is null)
+        {
+            throw new ArgumentNullException(nameof(b));
+        }
+        int digitsA = a.GetDigits().Length;
+        int digitsB = b.GetDigits().Length;
+        int maxDigits = Math.Max(digitsA, digitsB);
+        IMultiplier multiplier = maxDigits switch
+        {
+            < 32 => new SimpleMultiplier(),
+            < 256 => new KaratsubaMultiplier(),
+            _ => new FftMultiplier()
+        };
+        return multiplier.Multiply(a, b);
+    }
+
+    public static BetterBigInteger operator /(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        if (b is null)
+        {
+            throw new ArgumentNullException(nameof(b));
+        }
+        if (b.GetDigits().Length == 1 && b.GetDigits()[0] == 0)
+        {
+            throw new DivideByZeroException();
+        }
+        int cmp = CompareAbs(a.GetDigits(), b.GetDigits());
+        if (cmp < 0)
+        {
+            return new BetterBigInteger(new uint[] { 0 }, false);
+        }
+        uint[] quotient = DivideAbs(a.GetDigits(), b.GetDigits());
+        bool resultNegative = a.IsNegative ^ b.IsNegative;
+        return new BetterBigInteger(quotient, resultNegative);
+    }
+
+    public static BetterBigInteger operator %(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        if (b is null)
+        {
+            throw new ArgumentNullException(nameof(b));
+        }
+        if (b.GetDigits().Length == 1 && b.GetDigits()[0] == 0)
+        {
+            throw new DivideByZeroException();
+        }
+        int cmp = CompareAbs(a.GetDigits(), b.GetDigits());
+        if (cmp < 0)
+        {
+            return new BetterBigInteger(a.GetDigits().ToArray(), a.IsNegative);
+        }
+        uint[] remainder = RemainderAbs(a.GetDigits(), b.GetDigits());
+        return new BetterBigInteger(remainder, a.IsNegative);
+    }
     
     public static BetterBigInteger operator ~(BetterBigInteger a) => throw new NotImplementedException();
     public static BetterBigInteger operator &(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
@@ -371,7 +433,16 @@ public sealed class BetterBigInteger : IBigInteger
         Normalize(ref result);
         return result;
     }
+
+    private static uint[] DivideAbs(ReadOnlySpan<uint> dividend, ReadOnlySpan<uint> divisor)
+    {
+        
+    }
     
+    private static uint[] RemainderAbs(ReadOnlySpan<uint> dividend, ReadOnlySpan<uint> divisor)
+    {
+        
+    }
     
     public override string ToString() => ToString(10);
     public string ToString(int radix) => throw new NotImplementedException();
