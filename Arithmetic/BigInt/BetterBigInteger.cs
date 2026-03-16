@@ -537,9 +537,111 @@ public sealed class BetterBigInteger : IBigInteger
     }
     
     private static uint[] RemainderAbs(ReadOnlySpan<uint> dividend, ReadOnlySpan<uint> divisor)
-    {
-        
-    }
+        {
+            if (divisor.Length == 0 || (divisor.Length == 1 && divisor[0] == 0))
+            {
+                throw new DivideByZeroException();
+            }
+            int cmp = CompareAbs(dividend, divisor);
+            if (cmp < 0)
+            {
+                return dividend.ToArray();
+            }
+            if (cmp == 0)
+            {
+                return new uint[] { 0 };
+            }
+            int shift = 0;
+            uint d = divisor[divisor.Length - 1];
+            while (d < 0x80000000)
+            {
+                d <<= 1;
+                shift++;
+            }
+            uint[] u = ShiftLeft(dividend, shift);
+            uint[] v = ShiftLeft(divisor, shift);
+            int m0 = dividend.Length - divisor.Length;
+            int n = v.Length;
+            int expectedULen = n + m0 + 1;
+            if (u.Length < expectedULen)
+            {
+                Array.Resize(ref u, expectedULen);
+            }
+            if (n == 1)
+            {
+                uint divisorDigit = v[0];
+                ulong carry = 0;
+                for (int i = u.Length - 1; i >= 0; i--)
+                {
+                    ulong current = (carry << 32) | u[i];
+                    carry = current % divisorDigit;
+                }
+                uint[] remArray = new uint[] { (uint)carry };
+                if (shift > 0)
+                {
+                    remArray = ShiftRight(remArray, shift);
+                }
+                Normalize(ref remArray);
+                return remArray;
+            }
+            int m = u.Length - n;
+            for (int j = m - 1; j >= 0; j--)
+            {
+                ulong uj = ((ulong)u[j + n] << 32) | u[j + n - 1];
+                ulong vn = v[n - 1];
+                ulong qhat = uj / vn;
+                ulong rhat = uj % vn;
+                while (qhat >= 0x100000000UL ||
+                       (n > 1 && qhat * v[n - 2] > ((rhat << 32) | (j + n - 2 >= 0 ? u[j + n - 2] : 0UL))))
+                {
+                    qhat--;
+                    rhat += vn;
+                    if (rhat >= 0x100000000UL)
+                    {
+                        break;
+                    }
+                }
+                long borrow = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    long diff = u[j + i] - (long)(qhat * v[i]) - borrow;
+                    if (diff < 0)
+                    {
+                        diff += 1L << 32;
+                        borrow = 1;
+                    }
+                    else
+                    {
+                        borrow = 0;
+                    }
+                    u[j + i] = (uint)diff;
+                }
+                long diffLast = u[j + n] - borrow;
+                if (diffLast < 0)
+                {
+                    ulong carry = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        ulong sum = (ulong)u[j + i] + v[i] + carry;
+                        u[j + i] = (uint)sum;
+                        carry = sum >> 32;
+                    }
+                    u[j + n] = (uint)((ulong)u[j + n] + carry);
+                }
+                else
+                {
+                    u[j + n] = (uint)diffLast;
+                }
+            }
+            uint[] remainderArray = new uint[n];
+            Array.Copy(u, 0, remainderArray, 0, n);
+            if (shift > 0)
+            {
+                remainderArray = ShiftRight(remainderArray, shift);
+            }
+            Normalize(ref remainderArray);
+            return remainderArray;
+        }
     
     private static uint[] ShiftLeft(ReadOnlySpan<uint> a, int shift)
     {
