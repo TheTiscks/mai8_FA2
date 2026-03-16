@@ -70,5 +70,29 @@ internal class FftMultiplier : IMultiplier
 
     private static void Fft(Complex[] buffer, bool inverse)
     {
+        int n = buffer.Length;
+        if (n <= 1)
+        {
+            return;
+        }
+        var even = new Complex[n / 2];
+        var odd = new Complex[n / 2];
+        for (int i = 0; i < n / 2; i++)
+        {
+            even[i] = buffer[i * 2];
+            odd[i] = buffer[i * 2 + 1];
+        }
+        Fft(even, inverse);
+        Fft(odd, inverse);
+        double angle = (inverse ? 2.0 : -2.0) * Math.PI / n;
+        Complex w = new Complex(1, 0);
+        Complex wn = new Complex(Math.Cos(angle), Math.Sin(angle));
+        for (int i = 0; i < n / 2; i++)
+        {
+            Complex t = w * odd[i];
+            buffer[i] = even[i] + t;
+            buffer[i + n / 2] = even[i] - t;
+            w *= wn;
+        }
     }
 }
