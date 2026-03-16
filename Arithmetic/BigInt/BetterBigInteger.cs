@@ -1,5 +1,6 @@
 ﻿using Arithmetic.BigInt.Interfaces;
 using Arithmetic.BigInt.MultiplyStrategy;
+using System.Runtime.InteropServices;
 
 namespace Arithmetic.BigInt;
 
@@ -95,7 +96,9 @@ public sealed class BetterBigInteger : IBigInteger
     
     public ReadOnlySpan<uint> GetDigits()
     {
-        return _data ?? [_smallValue];
+        if (_data != null)
+            return new ReadOnlySpan<uint>(_data);
+        return MemoryMarshal.CreateReadOnlySpan(ref _smallValue, 1);
     }
     
     public int CompareTo(IBigInteger? other)
