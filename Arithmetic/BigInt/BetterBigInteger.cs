@@ -143,9 +143,69 @@ public sealed class BetterBigInteger : IBigInteger
     }
     
     
-    public static BetterBigInteger operator +(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    public static BetterBigInteger operator -(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    public static BetterBigInteger operator -(BetterBigInteger a) => throw new NotImplementedException();
+    public static BetterBigInteger operator +(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        if (b is null)
+        {
+            throw new ArgumentNullException(nameof(b));
+        }
+        if (a.IsNegative == b.IsNegative)
+        {
+            uint[] sum = AddAbs(a.GetDigits(), b.GetDigits());
+            return new BetterBigInteger(sum, a.IsNegative);
+        }
+        else
+        {
+            int cmp = CompareAbs(a.GetDigits(), b.GetDigits());
+            if (cmp == 0)
+            {
+                return new BetterBigInteger(new uint[] { 0 }, false);
+            }
+            if (cmp > 0)
+            {
+                uint[] diff = SubtractAbs(a.GetDigits(), b.GetDigits());
+                return new BetterBigInteger(diff, a.IsNegative);
+            }
+            else
+            {
+                uint[] diff = SubtractAbs(b.GetDigits(), a.GetDigits());
+                return new BetterBigInteger(diff, b.IsNegative);
+            }
+        }
+    }
+
+    public static BetterBigInteger operator -(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+
+        if (b is null)
+        {
+            throw new ArgumentNullException(nameof(b));
+        }
+        return a + (-b);
+    }
+
+    public static BetterBigInteger operator -(BetterBigInteger a)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        ReadOnlySpan<uint> digits = a.GetDigits();
+        if (digits.Length == 1 && digits[0] == 0)
+        {
+            return new BetterBigInteger(new uint[] { 0 }, false);
+        }
+        return new BetterBigInteger(digits.ToArray(), !a.IsNegative);
+    }
     public static BetterBigInteger operator /(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
     public static BetterBigInteger operator %(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
     
@@ -245,6 +305,73 @@ public sealed class BetterBigInteger : IBigInteger
         }
         return (char)('a' + digit - 10);
     }
+    
+    private static int CompareAbs(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
+    {
+        if (a.Length != b.Length)
+        {
+            return a.Length.CompareTo(b.Length);
+        }
+        for (int i = a.Length - 1; i >= 0; i--)
+        {
+            if (a[i] != b[i])
+            {
+                return a[i].CompareTo(b[i]);
+            }
+        }
+        return 0;
+    }
+    
+    private static uint[] AddAbs(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
+    {
+        int maxLen = Math.Max(a.Length, b.Length);
+        uint[] result = new uint[maxLen + 1];
+        ulong carry = 0;
+        for (int i = 0; i < maxLen; i++)
+        {
+            ulong sum = carry;
+            if (i < a.Length)
+            {
+                sum += a[i];
+            }
+
+            if (i < b.Length)
+            {
+                sum += b[i];
+            }
+            result[i] = (uint)sum;
+            carry = sum >> 32;
+        }
+        if (carry != 0)
+        {
+            result[maxLen] = (uint)carry;
+        }
+        Normalize(ref result);
+        return result;
+    }
+
+    private static uint[] SubtractAbs(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b) // a >= b
+    {
+        uint[] result = new uint[a.Length];
+        long borrow = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            long diff = a[i] - (i < b.Length ? b[i] : 0L) - borrow;
+            if (diff < 0)
+            {
+                diff += 1L << 32;
+                borrow = 1;
+            }
+            else
+            {
+                borrow = 0;
+            }
+            result[i] = (uint)diff;
+        }
+        Normalize(ref result);
+        return result;
+    }
+    
     
     public override string ToString() => ToString(10);
     public string ToString(int radix) => throw new NotImplementedException();
