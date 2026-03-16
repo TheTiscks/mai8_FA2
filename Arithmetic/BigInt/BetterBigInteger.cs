@@ -32,7 +32,42 @@ public sealed class BetterBigInteger : IBigInteger
     
     public BetterBigInteger(string value, int radix)
     {
-        
+        if (string.IsNullOrEmpty(value))
+        {
+            throw new ArgumentException("Value cannot be null or empty");
+        }
+        if (radix < 2 || radix > 36)
+        {
+            throw new ArgumentOutOfRangeException(nameof(radix), "Radix must be between 2 and 36");
+        }
+        int start = 0;
+        bool isNegative = false;
+        if (value[0] == '-')
+        {
+            isNegative = true;
+            start = 1;
+        }
+        else if (value[0] == '+')
+        {
+            start = 1;
+        }
+        if (start >= value.Length)
+        {
+            throw new FormatException("Invalid number format");
+        }
+        uint[] result = new uint[] { 0 };
+        for (int i = start; i < value.Length; i++)
+        {
+            char c = value[i];
+            int digit = CharToDigit(c, radix);
+            if (digit < 0 || digit >= radix)
+            {
+                throw new FormatException($"Invalid character '{c}' for radix {radix}");
+            }
+            result = MultiplyByDigit(result, (uint)radix);
+            result = AddDigit(result, (uint)digit);
+        }
+        InitializeFromDigits(result, isNegative);
     }
     
     private void InitializeFromDigits(uint[] digits, bool isNegative)
@@ -63,7 +98,35 @@ public sealed class BetterBigInteger : IBigInteger
         return _data ?? [_smallValue];
     }
     
-    public int CompareTo(IBigInteger? other) => throw new NotImplementedException();
+    public int CompareTo(IBigInteger? other)
+    {
+        if (other == null)
+        {
+            throw new ArgumentNullException(nameof(other));
+        }
+        bool thisNeg = this.IsNegative;
+        bool otherNeg = other.IsNegative;
+        if (thisNeg != otherNeg)
+        {
+            return thisNeg ? -1 : 1;
+        }
+        ReadOnlySpan<uint> thisDigits = this.GetDigits();
+        ReadOnlySpan<uint> otherDigits = other.GetDigits();
+        int lenCompare = thisDigits.Length.CompareTo(otherDigits.Length);
+        if (lenCompare != 0)
+        {
+            return thisNeg ? -lenCompare : lenCompare;
+        }
+        for (int i = thisDigits.Length - 1; i >= 0; i--)
+        {
+            if (thisDigits[i] != otherDigits[i])
+            {
+                int cmp = thisDigits[i].CompareTo(otherDigits[i]);
+                return thisNeg ? -cmp : cmp;
+            }
+        }
+        return 0;
+    }
     public bool Equals(IBigInteger? other) => throw new NotImplementedException();
     public override bool Equals(object? obj) => obj is IBigInteger other && Equals(other);
     public override int GetHashCode() => throw new NotImplementedException();
