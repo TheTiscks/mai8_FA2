@@ -31,7 +31,44 @@ internal class FftMultiplier : IMultiplier
 
     private static uint[] FftCore(ReadOnlySpan<uint> a, ReadOnlySpan<uint> b)
     {
-
+        int size = 1;
+        int targetLength = a.Length + b.Length;
+        while (size < targetLength)
+        {
+            size <<= 1;
+        }
+        var fa = new Complex[size];
+        var fb = new Complex[size];
+        for (int i = 0; i < a.Length; i++) fa[i] = new Complex(a[i], 0);
+        for (int i = 0; i < b.Length; i++) fb[i] = new Complex(b[i], 0);
+        Fft(fa, true);
+        Fft(fb, true);
+        for (int i = 0; i < size; i++) fa[i] *= fb[i];
+        Fft(fa, false);
+        var result = new uint[targetLength];
+        ulong carry = 0;
+        for (int i = 0; i < targetLength; i++)
+        {
+            double value = fa[i].Real / size;
+            long ival = (long)Math.Round(value) + (long)carry;
+            carry = (ulong)ival >> 32;
+            result[i] = (uint)(ival & 0xFFFFFFFF);
+        }
+        if (carry != 0)
+        {
+            Array.Resize(ref result, result.Length + 1);
+            result[result.Length - 1] = (uint)carry;
+        }
+        int lastNonZero = result.Length - 1;
+        while (lastNonZero > 0 && result[lastNonZero] == 0) lastNonZero--;
+        if (lastNonZero != result.Length - 1)
+        {
+            Array.Resize(ref result, lastNonZero + 1);
+        }
+        return result;
     }
-    
+
+    private static void Fft(Complex[] buffer, bool inverse)
+    {
+    }
 }
