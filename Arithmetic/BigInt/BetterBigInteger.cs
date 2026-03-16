@@ -30,6 +30,10 @@ public sealed class BetterBigInteger : IBigInteger
         InitializeFromDigits(digits.ToArray(), isNegative);
     }
     
+    public BetterBigInteger(string value, int radix)
+    {
+        
+    }
     
     private void InitializeFromDigits(uint[] digits, bool isNegative)
     {
@@ -100,6 +104,72 @@ public sealed class BetterBigInteger : IBigInteger
         {
             Array.Resize(ref arr, lastNonZero + 1);
         }
+    }
+    
+    private static uint[] MultiplyByDigit(ReadOnlySpan<uint> a, uint digit)
+    {
+        if (digit == 0)
+        {
+            return new uint[] { 0 };
+        }
+        uint[] result = new uint[a.Length + 1];
+        ulong carry = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            ulong product = (ulong)a[i] * digit + carry;
+            result[i] = (uint)product;
+            carry = product >> 32;
+        }
+        if (carry != 0)
+        {
+            result[a.Length] = (uint)carry;
+        }
+        Normalize(ref result);
+        return result;
+    }
+    
+    private static int CharToDigit(char c, int radix)
+    {
+        if (c >= '0' && c <= '9')
+        {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'z')
+        {
+            return c - 'a' + 10;
+        }
+        if (c >= 'A' && c <= 'Z')
+        {
+            return c - 'A' + 10;
+        }
+        return -1;
+    }
+    
+    private static uint[] AddDigit(ReadOnlySpan<uint> a, uint digit)
+    {
+        uint[] result = a.ToArray();
+        ulong carry = digit;
+        for (int i = 0; i < result.Length && carry != 0; i++)
+        {
+            ulong sum = result[i] + carry;
+            result[i] = (uint)sum;
+            carry = sum >> 32;
+        }
+        if (carry != 0)
+        {
+            Array.Resize(ref result, result.Length + 1);
+            result[result.Length - 1] = (uint)carry;
+        }
+        return result;
+    }
+    
+    private static char DigitToChar(int digit)
+    {
+        if (digit < 10)
+        {
+            return (char)('0' + digit);
+        }
+        return (char)('a' + digit - 10);
     }
     
     public override string ToString() => ToString(10);
