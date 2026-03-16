@@ -47,7 +47,22 @@ internal class SimpleMultiplier : IMultiplier
 
             if (carry != 0)
             {
-                // perenosa obrabotka
+                int idx = i + lenB;
+                while (carry != 0)
+                {
+                    if (idx < result.Count)
+                    {
+                        ulong sum = (ulong)result[idx] + carry;
+                        result[idx] = (uint)sum;
+                        carry = sum >> 32;
+                        idx++;
+                    }
+                    else
+                    {
+                        result.Add((uint)carry);
+                        carry >>= 32;
+                    }
+                }
             }
         }
         while (result.Count > 1 && result[result.Count - 1] == 0) // remove lead 0
