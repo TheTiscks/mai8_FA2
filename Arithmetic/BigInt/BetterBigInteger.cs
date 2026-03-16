@@ -127,9 +127,20 @@ public sealed class BetterBigInteger : IBigInteger
         }
         return 0;
     }
-    public bool Equals(IBigInteger? other) => throw new NotImplementedException();
+    public bool Equals(IBigInteger? other) => CompareTo(other) == 0;
+
     public override bool Equals(object? obj) => obj is IBigInteger other && Equals(other);
-    public override int GetHashCode() => throw new NotImplementedException();
+
+    public override int GetHashCode()
+    {
+        HashCode hash = new HashCode();
+        foreach (uint d in GetDigits())
+        {
+            hash.Add(d);
+        }
+        hash.Add(IsNegative);
+        return hash.ToHashCode();
+    }
     
     
     public static BetterBigInteger operator +(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
