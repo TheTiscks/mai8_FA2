@@ -436,12 +436,154 @@ public sealed class BetterBigInteger : IBigInteger
 
     private static uint[] DivideAbs(ReadOnlySpan<uint> dividend, ReadOnlySpan<uint> divisor)
     {
-        
+        if (divisor.Length == 0 || (divisor.Length == 1 && divisor[0] == 0))
+        {
+            throw new DivideByZeroException();
+        }
+        int cmp = CompareAbs(dividend, divisor);
+        if (cmp < 0)
+        {
+            return new uint[] { 0 };
+        }
+        if (cmp == 0)
+        {
+            return new uint[] { 1 };
+        }
+        int shift = 0;
+        uint d = divisor[divisor.Length - 1];
+        while (d < 0x80000000)
+        {
+            d <<= 1;
+            shift++;
+        }
+        uint[] u = ShiftLeft(dividend, shift);
+        uint[] v = ShiftLeft(divisor, shift);
+        int m0 = dividend.Length - divisor.Length;
+        int n = v.Length;
+        int expectedULen = n + m0 + 1;
+        if (u.Length < expectedULen)
+        {
+            Array.Resize(ref u, expectedULen);
+        }
+        if (n == 1)
+        {
+            uint divisorDigit = v[0];
+            uint[] quotient = new uint[u.Length];
+            ulong carry = 0;
+            for (int i = u.Length - 1; i >= 0; i--)
+            {
+                ulong current = (carry << 32) | u[i];
+                quotient[i] = (uint)(current / divisorDigit);
+                carry = current % divisorDigit;
+            }
+            Normalize(ref quotient);
+            return quotient;
+        }
+        int m = u.Length - n;
+        uint[] q = new uint[m + 1];
+        for (int j = m - 1; j >= 0; j--)
+        {
+            ulong uj = ((ulong)u[j + n] << 32) | u[j + n - 1];
+            ulong vn = v[n - 1];
+            ulong qhat = uj / vn;
+            ulong rhat = uj % vn;
+            while (qhat >= 0x100000000UL ||
+                   (n > 1 && qhat * v[n - 2] > ((rhat << 32) | (j + n - 2 >= 0 ? u[j + n - 2] : 0UL))))
+            {
+                qhat--;
+                rhat += vn;
+                if (rhat >= 0x100000000UL)
+                {
+                    break;
+                }
+            }
+            long borrow = 0;
+            for (int i = 0; i < n; i++)
+            {
+                long diff = u[j + i] - (long)(qhat * v[i]) - borrow;
+                if (diff < 0)
+                {
+                    diff += 1L << 32;
+                    borrow = 1;
+                }
+                else
+                {
+                    borrow = 0;
+                }
+                u[j + i] = (uint)diff;
+            }
+            long diffLast = u[j + n] - borrow;
+            if (diffLast < 0)
+            {
+                ulong carry = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    ulong sum = (ulong)u[j + i] + v[i] + carry;
+                    u[j + i] = (uint)sum;
+                    carry = sum >> 32;
+                }
+                u[j + n] = (uint)((ulong)u[j + n] + carry);
+                qhat--;
+            }
+            else
+            {
+                u[j + n] = (uint)diffLast;
+            }
+            q[j] = (uint)qhat;
+        }
+
+        Normalize(ref q);
+        return q;
     }
     
     private static uint[] RemainderAbs(ReadOnlySpan<uint> dividend, ReadOnlySpan<uint> divisor)
     {
         
+    }
+    
+    private static uint[] ShiftLeft(ReadOnlySpan<uint> a, int shift)
+    {
+        if (shift == 0)
+        {
+            return a.ToArray();
+        }
+        int wordShift = shift / 32;
+        int bitShift = shift % 32;
+        int newLength = a.Length + wordShift + 1;
+        uint[] result = new uint[newLength];
+        for (int i = 0; i < a.Length; i++)
+        {
+            int pos = i + wordShift;
+            ulong val = (ulong)a[i] << bitShift;
+            result[pos] |= (uint)val;
+            if (pos + 1 < newLength)
+                result[pos + 1] |= (uint)(val >> 32);
+        }
+        Normalize(ref result);
+        return result;
+    }
+
+    private static uint[] ShiftRight(ReadOnlySpan<uint> a, int shift)
+    {
+        if (shift == 0)
+        {
+            return a.ToArray();
+        }
+        int wordShift = shift / 32;
+        int bitShift = shift % 32;
+        if (wordShift >= a.Length) return new uint[] { 0 };
+        int newLength = a.Length - wordShift;
+        uint[] result = new uint[newLength];
+        for (int i = 0; i < newLength; i++)
+        {
+            int srcIdx = i + wordShift;
+            ulong val = a[srcIdx];
+            if (bitShift > 0 && srcIdx + 1 < a.Length)
+                val |= (ulong)a[srcIdx + 1] << 32;
+            result[i] = (uint)(val >> bitShift);
+        }
+        Normalize(ref result);
+        return result;
     }
     
     public override string ToString() => ToString(10);
