@@ -5,7 +5,7 @@ namespace Arithmetic.BigInt.MultiplyStrategy;
 
 internal class FftMultiplier : IMultiplier
 {
-    private const int FftThreshold = 256; // порог FFT
+    private const int FftThreshold = 256; // порог FFT, эмпирически
 
     public BetterBigInteger Multiply(BetterBigInteger a, BetterBigInteger b)
     {
@@ -20,11 +20,11 @@ internal class FftMultiplier : IMultiplier
         bool resultNegative = a.IsNegative ^ b.IsNegative;
         ReadOnlySpan<uint> digitsA = a.GetDigits();
         ReadOnlySpan<uint> digitsB = b.GetDigits();
-        /*if (digitsA.Length < FftThreshold || digitsB.Length < FftThreshold)
+        if (digitsA.Length < FftThreshold || digitsB.Length < FftThreshold)
         {
             var karatsuba = new KaratsubaMultiplier();
             return karatsuba.Multiply(a, b);
-        }*/
+        }
         uint[] productDigits = FftCore(digitsA, digitsB);
         return new BetterBigInteger(productDigits, resultNegative);
     }
@@ -41,13 +41,13 @@ internal class FftMultiplier : IMultiplier
         var fb = new Complex[size];
         for (int i = 0; i < a.Length; i++) fa[i] = new Complex(a[i], 0);
         for (int i = 0; i < b.Length; i++) fb[i] = new Complex(b[i], 0);
-        Fft(fa, false);
-        Fft(fa, false);
-
-        for (int i = 0; i < size; i++) fa[i] *= fb[i];
-        
         Fft(fb, true);
-
+        Fft(fb, true);
+        for (int i = 0; i < size; i++)
+        {
+            fa[i] *= fb[i];
+        }
+        Fft(fa, false);
         var result = new uint[targetLength];
         ulong carry = 0;
         for (int i = 0; i < targetLength; i++)
