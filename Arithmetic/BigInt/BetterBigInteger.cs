@@ -276,9 +276,26 @@ public sealed class BetterBigInteger : IBigInteger
     }
     
     public static BetterBigInteger operator ~(BetterBigInteger a) => throw new NotImplementedException();
-    public static BetterBigInteger operator &(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    public static BetterBigInteger operator |(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
-    public static BetterBigInteger operator ^(BetterBigInteger a, BetterBigInteger b) => throw new NotImplementedException();
+    public static BetterBigInteger operator &(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null) throw new ArgumentNullException(nameof(a));
+        if (b is null) throw new ArgumentNullException(nameof(b));
+        return BitwiseOp(a, b, (x, y) => x & y);
+    }
+
+    public static BetterBigInteger operator |(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null) throw new ArgumentNullException(nameof(a));
+        if (b is null) throw new ArgumentNullException(nameof(b));
+        return BitwiseOp(a, b, (x, y) => x | y);
+    }
+
+    public static BetterBigInteger operator ^(BetterBigInteger a, BetterBigInteger b)
+    {
+        if (a is null) throw new ArgumentNullException(nameof(a));
+        if (b is null) throw new ArgumentNullException(nameof(b));
+        return BitwiseOp(a, b, (x, y) => x ^ y);
+    }
     public static BetterBigInteger operator <<(BetterBigInteger a, int shift) => throw new NotImplementedException();
     public static BetterBigInteger operator >> (BetterBigInteger a, int shift) => throw new NotImplementedException();
     
@@ -288,6 +305,70 @@ public sealed class BetterBigInteger : IBigInteger
     public static bool operator >(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) > 0;
     public static bool operator <=(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) <= 0;
     public static bool operator >=(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) >= 0;
+    
+    
+    private static uint[] ToTwosComplement(ReadOnlySpan<uint> magnitude, bool negative, int targetLength)
+    {
+        uint[] result = new uint[targetLength];
+        magnitude.CopyTo(result);
+        if (!negative)
+        {
+            return result;
+        }
+        for (int i = 0; i < targetLength; i++)
+            result[i] = ~result[i];
+        ulong carry = 1;
+        for (int i = 0; i < targetLength && carry != 0; i++)
+        {
+            ulong sum = result[i] + carry;
+            result[i] = (uint)sum;
+            carry = sum >> 32;
+        }
+        return result;
+    }
+
+    private static (uint[] magnitude, bool negative) FromTwosComplement(uint[] twos)
+    {
+        int last = twos.Length - 1;
+        bool negative = (twos[last] & 0x80000000) != 0;
+        if (!negative)
+        {
+            Normalize(ref twos);
+            return (twos, false);
+        }
+        else
+        {
+            uint[] mag = new uint[twos.Length];
+            for (int i = 0; i < twos.Length; i++)
+                mag[i] = ~twos[i];
+            ulong carry = 1;
+            for (int i = 0; i < mag.Length && carry != 0; i++)
+            {
+                ulong sum = mag[i] + carry;
+                mag[i] = (uint)sum;
+                carry = sum >> 32;
+            }
+            Normalize(ref mag);
+            return (mag, true);
+        }
+    }
+    
+    private static BetterBigInteger BitwiseOp(BetterBigInteger a, BetterBigInteger b, Func<uint, uint, uint> op)
+    {
+        int lenA = a.GetDigits().Length;
+        int lenB = b.GetDigits().Length;
+        int targetLen = Math.Max(lenA, lenB) + 1;
+
+        uint[] twosA = ToTwosComplement(a.GetDigits(), a.IsNegative, targetLen);
+        uint[] twosB = ToTwosComplement(b.GetDigits(), b.IsNegative, targetLen);
+
+        uint[] resultTwos = new uint[targetLen];
+        for (int i = 0; i < targetLen; i++)
+            resultTwos[i] = op(twosA[i], twosB[i]);
+
+        (uint[] mag, bool neg) = FromTwosComplement(resultTwos);
+        return new BetterBigInteger(mag, neg);
+    }
     
     private static void Normalize(ref uint[] arr)
     {
