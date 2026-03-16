@@ -275,7 +275,21 @@ public sealed class BetterBigInteger : IBigInteger
         return new BetterBigInteger(remainder, a.IsNegative);
     }
     
-    public static BetterBigInteger operator ~(BetterBigInteger a) => throw new NotImplementedException();
+    public static BetterBigInteger operator ~(BetterBigInteger a)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        int targetLen = a.GetDigits().Length + 1;
+        uint[] twosA = ToTwosComplement(a.GetDigits(), a.IsNegative, targetLen);
+        for (int i = 0; i < targetLen; i++)
+        {
+            twosA[i] = ~twosA[i];
+        }
+        (uint[] mag, bool neg) = FromTwosComplement(twosA);
+        return new BetterBigInteger(mag, neg);
+    }
     public static BetterBigInteger operator &(BetterBigInteger a, BetterBigInteger b)
     {
         if (a is null) throw new ArgumentNullException(nameof(a));
@@ -296,9 +310,54 @@ public sealed class BetterBigInteger : IBigInteger
         if (b is null) throw new ArgumentNullException(nameof(b));
         return BitwiseOp(a, b, (x, y) => x ^ y);
     }
-    public static BetterBigInteger operator <<(BetterBigInteger a, int shift) => throw new NotImplementedException();
-    public static BetterBigInteger operator >> (BetterBigInteger a, int shift) => throw new NotImplementedException();
-    
+    public static BetterBigInteger operator <<(BetterBigInteger a, int shift)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        if (shift < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shift), "Shift must be non-negative");
+        }
+        if (shift == 0)
+        {
+            return new BetterBigInteger(a.GetDigits().ToArray(), a.IsNegative);
+        }
+        uint[] magnitude = a.GetDigits().ToArray();
+        uint[] result = ShiftLeft(magnitude, shift);
+        return new BetterBigInteger(result, a.IsNegative);
+    }
+
+    public static BetterBigInteger operator >>(BetterBigInteger a, int shift)
+    {
+        if (a is null)
+        {
+            throw new ArgumentNullException(nameof(a));
+        }
+        if (shift < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(shift), "Shift must be non-negative");
+        }
+        if (shift == 0)
+        {
+            return new BetterBigInteger(a.GetDigits().ToArray(), a.IsNegative);
+        }
+        if (!a.IsNegative)
+        {
+            uint[] result = ShiftRight(a.GetDigits(), shift);
+            return new BetterBigInteger(result, false);
+        }
+        else
+        {
+            // для отриц чисел эквив.: a >> k = -(((-a) + (1<<k) - 1) >> k)
+            BetterBigInteger absA = new BetterBigInteger(a.GetDigits().ToArray(), false);
+            BetterBigInteger power = new BetterBigInteger(new uint[] { 1 }, false) << shift;
+            BetterBigInteger numerator = absA + power - new BetterBigInteger(new uint[] { 1 }, false);
+            BetterBigInteger shifted = numerator >> shift; // для положительного числа
+            return -shifted;
+        }
+    }
     public static bool operator ==(BetterBigInteger a, BetterBigInteger b) => Equals(a, b);
     public static bool operator !=(BetterBigInteger a, BetterBigInteger b) => !Equals(a, b);
     public static bool operator <(BetterBigInteger a, BetterBigInteger b) => a.CompareTo(b) < 0;
@@ -403,6 +462,25 @@ public sealed class BetterBigInteger : IBigInteger
         }
         Normalize(ref result);
         return result;
+    }
+    
+    private static uint[] DivideByDigit(ReadOnlySpan<uint> a, uint divisor, out uint remainder)
+    {
+        if (divisor == 0)
+        {
+            throw new DivideByZeroException();
+        }
+        uint[] quotient = new uint[a.Length];
+        ulong carry = 0;
+        for (int i = a.Length - 1; i >= 0; i--)
+        {
+            ulong current = (carry << 32) | a[i];
+            quotient[i] = (uint)(current / divisor);
+            carry = current % divisor;
+        }
+        remainder = (uint)carry;
+        Normalize(ref quotient);
+        return quotient;
     }
     
     private static int CharToDigit(char c, int radix)
@@ -770,6 +848,30 @@ public sealed class BetterBigInteger : IBigInteger
     }
     
     public override string ToString() => ToString(10);
-    public string ToString(int radix) => throw new NotImplementedException();
-    
+    public string ToString(int radix)
+    {
+        if (radix < 2 || radix > 36)
+        {
+            throw new ArgumentOutOfRangeException(nameof(radix), "Radix must be between 2 and 36");
+        }
+        ReadOnlySpan<uint> digits = GetDigits();
+        if (digits.Length == 0 || (digits.Length == 1 && digits[0] == 0))
+        {
+            return "0";
+        }
+        uint[] temp = digits.ToArray();
+        List<char> chars = new List<char>();
+        while (!(temp.Length == 1 && temp[0] == 0))
+        {
+            uint remainder;
+            temp = DivideByDigit(temp, (uint)radix, out remainder);
+            chars.Add(DigitToChar((int)remainder));
+        }
+        if (IsNegative)
+        {
+            chars.Add('-');
+        }
+        chars.Reverse();
+        return new string(chars.ToArray());
+    }
 }
