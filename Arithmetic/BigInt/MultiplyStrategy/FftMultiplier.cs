@@ -41,7 +41,7 @@ internal class FftMultiplier : IMultiplier
         var fb = new Complex[size];
         for (int i = 0; i < a.Length; i++) fa[i] = new Complex(a[i], 0);
         for (int i = 0; i < b.Length; i++) fb[i] = new Complex(b[i], 0);
-        Fft(fb, true);
+        Fft(fa, true);
         Fft(fb, true);
         for (int i = 0; i < size; i++)
         {
