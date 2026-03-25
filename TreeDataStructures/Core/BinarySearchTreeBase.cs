@@ -16,6 +16,7 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
     
     public bool IsReadOnly => false;
     
+    
     protected virtual int GetHeight(TNode? node)
     {
         if (node == null)
@@ -294,6 +295,8 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
         private readonly BinarySearchTreeBase<TKey, TValue, TNode> _tree;
         private readonly TraversalStrategy _strategy;
         private Stack<object>? _stack; // храним узлы и сост
+        private List<TreeEntry<TKey, TValue>>? _cachedEntries;
+        private int _reverseIndex;
         private TreeEntry<TKey, TValue> _current;
 
         public TreeIterator(BinarySearchTreeBase<TKey, TValue, TNode> tree, TraversalStrategy strategy)
@@ -301,13 +304,14 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             _tree = tree;
             _strategy = strategy;
             _stack = null;
+            _cachedEntries = null;
+            _reverseIndex = -1;
             _current = default;
             Initialize();
         }
 
         private void Initialize()
         {
-            _stack = new Stack<object>();
             if (_tree.Root == null)
             {
                 return;
@@ -315,24 +319,66 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             switch (_strategy)
             {
                 case TraversalStrategy.PreOrder:
+                    _stack = new Stack<object>();
                     _stack.Push(_tree.Root);
                     break;
                 case TraversalStrategy.PreOrderReverse:
-                    _stack.Push(new PostOrderState { Node = _tree.Root, Visited = false });
+                    _cachedEntries = new List<TreeEntry<TKey, TValue>>();
+                    CollectPreOrder(_tree.Root, _cachedEntries);
+                    _reverseIndex = _cachedEntries.Count - 1;
                     break;
                 case TraversalStrategy.InOrder:
+                    _stack = new Stack<object>();
                     PushLeftChain(_tree.Root);
                     break;
                 case TraversalStrategy.InOrderReverse:
-                    PushRightChain(_tree.Root);
+                    _cachedEntries = new List<TreeEntry<TKey, TValue>>();
+                    CollectInOrder(_tree.Root, _cachedEntries);
+                    _reverseIndex = _cachedEntries.Count - 1;
                     break;
                 case TraversalStrategy.PostOrder:
+                    _stack = new Stack<object>();
                     _stack.Push(new PostOrderState { Node = _tree.Root, Visited = false });
                     break;
                 case TraversalStrategy.PostOrderReverse:
-                    _stack.Push(_tree.Root);
+                    _cachedEntries = new List<TreeEntry<TKey, TValue>>();
+                    CollectPostOrder(_tree.Root, _cachedEntries);
+                    _reverseIndex = _cachedEntries.Count - 1;
                     break;
             }
+        }
+
+        private void CollectPreOrder(TNode? node, List<TreeEntry<TKey, TValue>> list)
+        {
+            if (node == null)
+            {
+                return;
+            }
+            list.Add(CreateEntry(node));
+            CollectPreOrder(node.Left, list);
+            CollectPreOrder(node.Right, list);
+        }
+
+        private void CollectInOrder(TNode? node, List<TreeEntry<TKey, TValue>> list)
+        {
+            if (node == null)
+            {
+                return;
+            }
+            CollectInOrder(node.Left, list);
+            list.Add(CreateEntry(node));
+            CollectInOrder(node.Right, list);
+        }
+
+        private void CollectPostOrder(TNode? node, List<TreeEntry<TKey, TValue>> list)
+        {
+            if (node == null)
+            {
+                return;
+            }
+            CollectPostOrder(node.Left, list);
+            CollectPostOrder(node.Right, list);
+            list.Add(CreateEntry(node));
         }
 
         private void PushLeftChain(TNode? node)
@@ -367,6 +413,16 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
 
         public bool MoveNext()
         {
+            if (_cachedEntries != null)
+            {
+                if (_reverseIndex >= 0)
+                {
+                    _current = _cachedEntries[_reverseIndex];
+                    _reverseIndex--;
+                    return true;
+                }
+                return false;
+            }
             if (_stack == null || _stack.Count == 0)
             {
                 return false;
@@ -375,16 +431,10 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             {
                 case TraversalStrategy.PreOrder:
                     return MoveNextPreOrder();
-                case TraversalStrategy.PreOrderReverse:
-                    return MoveNextPreOrderReverse();
                 case TraversalStrategy.InOrder:
                     return MoveNextInOrder();
-                case TraversalStrategy.InOrderReverse:
-                    return MoveNextInOrderReverse();
                 case TraversalStrategy.PostOrder:
                     return MoveNextPostOrder();
-                case TraversalStrategy.PostOrderReverse:
-                    return MoveNextPostOrderReverse();
                 default:
                     throw new NotSupportedException("Strategy not implemented");
             }
@@ -405,50 +455,6 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             return true;
         }
 
-        private bool MoveNextPreOrderReverse()
-        {
-            while (true)
-            {
-                var state = (PostOrderState)_stack!.Peek();
-                if (!state.Visited)
-                {
-                    state.Visited = true;
-                    _stack.Pop();
-                    _stack.Push(state);
-                    if (state.Node.Left != null)
-                    {
-                        _stack.Push(new PostOrderState { Node = state.Node.Left, Visited = false });
-                    }
-
-                    if (state.Node.Right != null)
-                    {
-                        _stack.Push(new PostOrderState { Node = state.Node.Right, Visited = false });
-                    }
-                }
-                else
-                {
-                    _stack.Pop();
-                    _current = CreateEntry(state.Node);
-                    return true;
-                }
-            }
-        }
-
-        private bool MoveNextPostOrderReverse()
-        {
-            var node = (TNode)_stack!.Pop();
-            _current = CreateEntry(node);
-            if (node.Left != null)
-            {
-                _stack.Push(node.Left);
-            }
-            if (node.Right != null)
-            {
-                _stack.Push(node.Right);
-            }
-            return true;
-        }
-        
         private bool MoveNextInOrder()
         {
             var node = (TNode)_stack!.Pop();
@@ -456,17 +462,6 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
             if (node.Right != null)
             {
                 PushLeftChain(node.Right);
-            }
-            return true;
-        }
-
-        private bool MoveNextInOrderReverse()
-        {
-            var node = (TNode)_stack!.Pop();
-            _current = CreateEntry(node);
-            if (node.Left != null)
-            {
-                PushRightChain(node.Left);
             }
             return true;
         }
@@ -484,16 +479,24 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
                     if (_strategy == TraversalStrategy.PostOrder)
                     {
                         if (state.Node.Right != null)
+                        {
                             _stack.Push(new PostOrderState { Node = state.Node.Right, Visited = false });
+                        }
                         if (state.Node.Left != null)
+                        {
                             _stack.Push(new PostOrderState { Node = state.Node.Left, Visited = false });
+                        }
                     }
                     else // PostOrderReverse
                     {
                         if (state.Node.Left != null)
+                        {
                             _stack.Push(new PostOrderState { Node = state.Node.Left, Visited = false });
+                        }
                         if (state.Node.Right != null)
+                        {
                             _stack.Push(new PostOrderState { Node = state.Node.Right, Visited = false });
+                        }
                     }
                 }
                 else
@@ -513,7 +516,8 @@ public abstract class BinarySearchTreeBase<TKey, TValue, TNode>(IComparer<TKey>?
 
         public void Reset()
         {
-            _stack?.Clear();
+            _stack = null;
+            _cachedEntries = null;
             Initialize();
         }
 
