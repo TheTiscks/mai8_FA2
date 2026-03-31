@@ -62,7 +62,7 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                     {
                         RotateRight(parent);
                         z = parent;
-                        parent = z.Parent;
+                        parent = z.Parent!;
                     }
                     RotateLeft(grandparent);
                     (parent.Color, grandparent.Color) = (grandparent.Color, parent.Color);
@@ -75,91 +75,42 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
     }
 
     #endregion
-    
     #region Deletion fixup
-    
-    protected override void RemoveNode(RbNode<TKey, TValue> z)
+    protected override void OnNodeRemoved(RbNode<TKey, TValue>? parent, RbNode<TKey, TValue>? child)
     {
-        RbNode<TKey, TValue>? y = z;
-        RbNode<TKey, TValue>? x = null;
-        RbNode<TKey, TValue>? xParent = null;
-        RbColor yOriginalColor = y.Color;
-        bool? xIsLeft = null; // true - x слева от xParent
-        if (z.Left == null)
+        bool deletedWasBlack = (child == null || child.Color == RbColor.Black);
+        if (!deletedWasBlack)
         {
-            x = z.Right;
-            xParent = z.Parent;
-            xIsLeft = z.IsLeftChild; // x в сторону z
-            Transplant(z, x);
+            return;
         }
-        else if (z.Right == null)
+        bool? isLeft = null;
+        if (parent != null && child != null)
         {
-            x = z.Left;
-            xParent = z.Parent;
-            xIsLeft = z.IsLeftChild;
-            Transplant(z, x);
-        }
-        else // оба ребенка есть 
-        {
-            y = z.Right;
-            while (y.Left != null)
+            if (parent.Left == child)
             {
-                y = y.Left;
+                isLeft = true;
             }
-            yOriginalColor = y.Color;
-            x = y.Right;
-            if (y.Parent == z)
+            else if (parent.Right == child)
             {
-                xParent = y; // y – правый ребёнок z
-                xIsLeft = false; // x будет правым дитём y
-                Transplant(z, y);
-                y.Left = z.Left;
-                y.Left!.Parent = y;
-                y.Color = z.Color;
-            }
-            else
-            {
-                xParent = y.Parent; // y  глубже
-                xIsLeft = y.IsLeftChild; // x на место y
-                Transplant(y, x);
-                y.Right = z.Right;
-                y.Right!.Parent = y;
-                Transplant(z, y);
-                y.Left = z.Left;
-                y.Left!.Parent = y;
-                y.Color = z.Color;
+                isLeft = false;
             }
         }
-        if (yOriginalColor == RbColor.Black)
+        if (parent == null || isLeft == null)
         {
-            FixAfterDeletion(x, xParent, xIsLeft);
+            return;
         }
-        if (Root is RbNode<TKey, TValue> root)
-        {
-            root.Color = RbColor.Black;
-        }
-        OnNodeRemoved(z.Parent, x);
+        FixAfterDeletion(child, parent, isLeft.Value);
     }
-    
-    private void FixAfterDeletion(RbNode<TKey, TValue>? x, RbNode<TKey, TValue>? parent, bool? xIsLeft) {
+
+    private void FixAfterDeletion(RbNode<TKey, TValue>? x, RbNode<TKey, TValue> parent, bool xIsLeft)
+    {
         while (x != Root && GetColor(x) == RbColor.Black)
         {
-            bool isLeft; 
-            if (x != null) // с какой стороны x от parent
-            {
-                isLeft = x == parent?.Left;
-            }
-            else
-            {
-                if (parent == null)
-                {
-                    break;
-                }
-                isLeft = xIsLeft!.Value;
-            }
+            bool isLeft = (x != null) ? (x == parent.Left) : xIsLeft;
+
             if (isLeft)
             {
-                var sibling = parent?.Right; // x – левое д
+                var sibling = parent.Right;
                 if (GetColor(sibling) == RbColor.Red)
                 {
                     sibling!.Color = RbColor.Black;
@@ -174,7 +125,8 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                         sibling.Color = RbColor.Red;
                     }
                     x = parent;
-                    parent = x?.Parent;
+                    parent = x?.Parent ?? parent;
+                    xIsLeft = (x != null) ? (x == parent.Left) : xIsLeft;
                 }
                 else
                 {
@@ -189,9 +141,9 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                             sibling.Color = RbColor.Red;
                         }
                         RotateRight(sibling!);
-                        sibling = parent?.Right;
+                        sibling = parent.Right;
                     }
-                    sibling!.Color = parent!.Color;
+                    sibling!.Color = parent.Color;
                     parent.Color = RbColor.Black;
                     if (sibling.Right is RbNode<TKey, TValue> rightChild)
                     {
@@ -203,22 +155,20 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
             }
             else
             {
-                var sibling = parent?.Left; // x - правое д
+                var sibling = parent.Left;
                 if (GetColor(sibling) == RbColor.Red)
                 {
                     sibling!.Color = RbColor.Black;
-                    parent!.Color = RbColor.Red;
+                    parent.Color = RbColor.Red;
                     RotateRight(parent);
                     sibling = parent.Left;
                 }
                 if (GetColor(sibling?.Left) == RbColor.Black && GetColor(sibling?.Right) == RbColor.Black)
                 {
-                    if (sibling != null)
-                    {
-                        sibling.Color = RbColor.Red;
-                    }
+                    if (sibling != null) sibling.Color = RbColor.Red;
                     x = parent;
-                    parent = x?.Parent;
+                    parent = x?.Parent ?? parent;
+                    xIsLeft = (x != null) ? (x == parent.Left) : xIsLeft;
                 }
                 else
                 {
@@ -233,9 +183,9 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
                             sibling.Color = RbColor.Red;
                         }
                         RotateLeft(sibling!);
-                        sibling = parent?.Left;
+                        sibling = parent.Left;
                     }
-                    sibling!.Color = parent!.Color;
+                    sibling!.Color = parent.Color;
                     parent.Color = RbColor.Black;
                     if (sibling.Left is RbNode<TKey, TValue> leftChild)
                     {
@@ -255,8 +205,4 @@ public class RedBlackTree<TKey, TValue> : BinarySearchTreeBase<TKey, TValue, RbN
     private static RbColor GetColor(RbNode<TKey, TValue>? node) => node?.Color ?? RbColor.Black;
 
     #endregion
-
-    protected override void OnNodeRemoved(RbNode<TKey, TValue>? parent, RbNode<TKey, TValue>? child)
-    {
-    }
 }
