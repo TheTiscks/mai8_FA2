@@ -101,7 +101,36 @@ public sealed class BetterBigInteger : IBigInteger
         return MemoryMarshal.CreateReadOnlySpan(ref _smallValue, 1);
     }
     
-    //compareto func
+    public int CompareTo(IBigInteger? other)
+    {
+        if (other == null)
+        {
+            throw new ArgumentNullException(nameof(other));
+        }
+        bool thisNeg = this.IsNegative;
+        bool otherNeg = other.IsNegative;
+        if (thisNeg != otherNeg)
+        {
+            return thisNeg ? -1 : 1;
+        }
+        ReadOnlySpan<uint> thisDigits = this.GetDigits();
+        ReadOnlySpan<uint> otherDigits = other.GetDigits();
+        int lenCompare = thisDigits.Length.CompareTo(otherDigits.Length);
+        if (lenCompare != 0)
+        {
+            return thisNeg ? -lenCompare : lenCompare;
+        }
+        for (int i = thisDigits.Length - 1; i >= 0; i--)
+        {
+            if (thisDigits[i] != otherDigits[i])
+            {
+                int cmp = thisDigits[i].CompareTo(otherDigits[i]);
+                return thisNeg ? -cmp : cmp;
+            }
+        }
+        return 0;
+    }
+    
     
     
     public bool Equals(IBigInteger? other) => CompareTo(other) == 0;
