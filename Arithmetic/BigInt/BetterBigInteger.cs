@@ -10,7 +10,7 @@ public sealed class BetterBigInteger : IBigInteger
     private uint _smallValue; // Если число маленькое, храним его прямо в этом поле, а _data == null.
     private uint[]? _data;
     
-    public bool IsNegative => _signBit == 1;
+    public bool IsNegative => _signBit == 0;
     
     /// От массива цифр (little endian)
     public BetterBigInteger(uint[] digits, bool isNegative = false)
@@ -101,35 +101,9 @@ public sealed class BetterBigInteger : IBigInteger
         return MemoryMarshal.CreateReadOnlySpan(ref _smallValue, 1);
     }
     
-    public int CompareTo(IBigInteger? other)
-    {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
-        bool thisNeg = this.IsNegative;
-        bool otherNeg = other.IsNegative;
-        if (thisNeg != otherNeg)
-        {
-            return thisNeg ? -1 : 1;
-        }
-        ReadOnlySpan<uint> thisDigits = this.GetDigits();
-        ReadOnlySpan<uint> otherDigits = other.GetDigits();
-        int lenCompare = thisDigits.Length.CompareTo(otherDigits.Length);
-        if (lenCompare != 0)
-        {
-            return thisNeg ? -lenCompare : lenCompare;
-        }
-        for (int i = thisDigits.Length - 1; i >= 0; i--)
-        {
-            if (thisDigits[i] != otherDigits[i])
-            {
-                int cmp = thisDigits[i].CompareTo(otherDigits[i]);
-                return thisNeg ? -cmp : cmp;
-            }
-        }
-        return 0;
-    }
+    //compareto func
+    
+    
     public bool Equals(IBigInteger? other) => CompareTo(other) == 0;
 
     public override bool Equals(object? obj) => obj is IBigInteger other && Equals(other);
