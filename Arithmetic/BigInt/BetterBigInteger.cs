@@ -12,7 +12,7 @@ public sealed class BetterBigInteger : IBigInteger
     
     public bool IsNegative => _signBit == 1;
     
-    /// От массива цифр (little endian)
+    // little end
     public BetterBigInteger(uint[] digits, bool isNegative = false)
     {
         if (digits == null)
@@ -97,7 +97,9 @@ public sealed class BetterBigInteger : IBigInteger
     public ReadOnlySpan<uint> GetDigits()
     {
         if (_data != null)
+        {
             return new ReadOnlySpan<uint>(_data);
+        }
         return MemoryMarshal.CreateReadOnlySpan(ref _smallValue, 1);
     }
     
@@ -191,7 +193,6 @@ public sealed class BetterBigInteger : IBigInteger
         {
             throw new ArgumentNullException(nameof(a));
         }
-
         if (b is null)
         {
             throw new ArgumentNullException(nameof(b));
@@ -423,14 +424,13 @@ public sealed class BetterBigInteger : IBigInteger
         int lenA = a.GetDigits().Length;
         int lenB = b.GetDigits().Length;
         int targetLen = Math.Max(lenA, lenB) + 1;
-
         uint[] twosA = ToTwosComplement(a.GetDigits(), a.IsNegative, targetLen);
         uint[] twosB = ToTwosComplement(b.GetDigits(), b.IsNegative, targetLen);
-
         uint[] resultTwos = new uint[targetLen];
         for (int i = 0; i < targetLen; i++)
+        {
             resultTwos[i] = op(twosA[i], twosB[i]);
-
+        }
         (uint[] mag, bool neg) = FromTwosComplement(resultTwos);
         return new BetterBigInteger(mag, neg);
     }
