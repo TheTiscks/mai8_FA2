@@ -10,7 +10,7 @@ public sealed class BetterBigInteger : IBigInteger
     private uint _smallValue; // Если число маленькое, храним его прямо в этом поле, а _data == null.
     private uint[]? _data;
     
-    public bool IsNegative => _signBit == 0;
+    public bool IsNegative => _signBit == 1;
     
     /// От массива цифр (little endian)
     public BetterBigInteger(uint[] digits, bool isNegative = false)
